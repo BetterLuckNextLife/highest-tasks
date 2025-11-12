@@ -10,6 +10,11 @@ services:
       - "5432:5432"
     volumes:
       - pgappdata:/var/postgress/appdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
   app:
     build:
       context: app
@@ -17,7 +22,10 @@ services:
     ports:
       - "7007:7007"
     environment:
-      DATABASE_URL: "postgresql://appuser:apppass@db:5432/appdb"
+      SQLALCHEMY_DATABASE_URI: "postgresql+psycopg2://appuser:apppass@db:5432/appdb"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgappdata:
