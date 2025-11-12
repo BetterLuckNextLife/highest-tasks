@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:18
+    container_name: db
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppass
+      POSTGRES_DB: appdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgappdata:/var/postgress/appdata
+  app:
+    build:
+      context: app
+    container_name: app
+    ports:
+      - "7007:7007"
+    environment:
+      DATABASE_URL: "postgresql://appuser:apppass@db:5432/appdb"
+
+volumes:
+  pgappdata:
