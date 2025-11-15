@@ -9,15 +9,16 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgappdata:/var/postgress/appdata
+      - pgappdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
       interval: 5s
       timeout: 3s
       retries: 3
+
   app:
     build:
-      context: app
+      context: ./app
     container_name: app
     ports:
       - "7007:7007"
@@ -26,6 +27,10 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ./app/templates:/app/templates
+      - ./app/static:/app/static
+      - ./app:/app
 
 volumes:
   pgappdata:
