@@ -8,8 +8,7 @@ app = Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = "CHANGEME" # TODO: Change for production
-app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.config["SECRET_KEY"] = os.getenv("APP_SECRET_KEY")
 
 db.init_app(app)
 with app.app_context():
