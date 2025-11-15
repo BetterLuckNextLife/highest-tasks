@@ -11,7 +11,7 @@ app = Flask(__name__)
 
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = "CHANGEME"  # TODO: Change this key later
+app.config["SECRET_KEY"] = os.getenv("APP_SECRET_KEY")
 
 db.init_app(app)
 
