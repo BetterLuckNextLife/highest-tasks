@@ -1,3 +1,4 @@
+# Тесты рендера и редиректов
 def test_pages_render(client):
     assert client.get("/").status_code == 200
     assert client.get("/login").status_code == 200
@@ -21,7 +22,7 @@ def test_login_success_redirect(client):
         follow_redirects=False,
     )
     r = client.post(
-        "/register",
+        "/login",
         data={"username": "bob", "password": "verysecure"},
         follow_redirects=False,
     )
@@ -29,7 +30,7 @@ def test_login_success_redirect(client):
     assert r.headers["Location"].endswith("/board")
 
 
-# ТЕСТЫ /board
+# Тесты /board
 
 
 def test_board_requires_auth(client):

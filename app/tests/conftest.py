@@ -1,14 +1,11 @@
 import os
+
+os.environ["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
+os.environ["APP_SECRET_KEY"] = "test-secret"
+
 import pytest
-
-from main import app as flask_app
-from db import db
-
-
-@pytest.fixture(scope="session", autouse=True)
-def _env():
-    os.environ["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
-    os.environ["APP_SECRET_KEY"] = "test-secret"
+from app.main import app as flask_app
+from app.db import db
 
 
 @pytest.fixture(scope="session")
