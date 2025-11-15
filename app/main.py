@@ -1,30 +1,46 @@
 import os
 from flask import Flask, redirect, render_template, request, url_for, flash
-from flask_login import LoginManager, login_required, login_user, logout_user, current_user
+from flask_login import (
+    LoginManager,
+    login_required,
+    login_user,
+    logout_user,
+    current_user,
+)
 from werkzeug.security import generate_password_hash, check_password_hash
-from db import db, Card, User, Board
-
-app = Flask(__name__)
-
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-app.config["SECRET_KEY"] = os.getenv("APP_SECRET_KEY")
-
-db.init_app(app)
-with app.app_context():
-    db.create_all()
+from app.db import db, Card, User, Board
 
 login_manager = LoginManager()
-login_manager.init_app(app)
-login_manager.login_view = "login"
+
+
+def create_app():
+    app = Flask(__name__)
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
+    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["SECRET_KEY"] = os.getenv("APP_SECRET_KEY")
+
+    db.init_app(app)
+    with app.app_context():
+        db.create_all()
+
+    login_manager.init_app(app)
+    login_manager.login_view = "login"
+
+    return app
+
+
+app = create_app()
+
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    return db.session.get(User, int(user_id))
+
 
 @app.route("/")
 def index():
     return render_template("index.html")
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -40,12 +56,14 @@ def login():
             error = "Логин или пароль не верен!"
     return render_template("login.html", error=error)
 
+
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     flash("Вы вышли из аккаунта.", "info")
     return redirect(url_for("login"))
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -70,6 +88,7 @@ def register():
             return redirect(url_for("login"))
     return render_template("register.html", error=error)
 
+
 @app.route("/board", methods=["GET", "POST"])
 @login_required
 def board():
@@ -77,19 +96,19 @@ def board():
         ("ideas", "Идеи"),
         ("todo", "To Do"),
         ("wip", "В работе"),
-        ("done", "Готово")
+        ("done", "Готово"),
     ]
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         status = request.form.get("status", "ideas")
         description = request.form.get("description", "")
-        if name and status in [s for s, t in statuses]:
+        if name and status in [s for s, _ in statuses]:
             card = Card(
                 name=name,
                 description=description,
                 status=status,
                 deadline=None,
-                board_id=1
+                board_id=1,
             )
             db.session.add(card)
             db.session.commit()
@@ -98,5 +117,7 @@ def board():
     tasks = Card.query.order_by(Card.id.desc()).all()
     return render_template("board.html", tasks=tasks, statuses=statuses)
 
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7007, debug=True)
+
