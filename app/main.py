@@ -8,7 +8,12 @@ from flask_login import (
     current_user,
 )
 from werkzeug.security import generate_password_hash, check_password_hash
-from app.db import db, Card, User, Board
+
+try:
+    from db import db, Card, User, Board
+except ImportError as exc:
+    from app.db import db, Card, User, Board
+
 
 login_manager = LoginManager()
 
@@ -120,4 +125,3 @@ def board():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7007, debug=True)
-
