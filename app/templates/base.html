@@ -13,6 +13,7 @@
       <div class="flex items-center gap-4">
         {% if current_user.is_authenticated %}
           <a class="text-sm text-blue-600 hover:underline" href="{{ url_for('boards') }}">Доски</a>
+          <a class="text-sm text-blue-600 hover:underline" href="{{ url_for('groups') }}">Группы</a>
           <a class="text-sm text-blue-600 hover:underline" href="{{ url_for('profile') }}">Профиль</a>
           <a class="text-sm text-gray-600 hover:underline" href="{{ url_for('logout') }}">Выход</a>
         {% else %}

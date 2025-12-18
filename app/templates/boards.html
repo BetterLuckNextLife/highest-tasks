@@ -22,6 +22,9 @@
          class="block bg-white rounded shadow hover:shadow-lg transition p-4">
         <div class="text-lg font-semibold">{{ b.name }}</div>
         <div class="text-sm text-gray-500 mt-1">#{{ b.id }}</div>
+        {% if b.owner_group %}
+        <div class="text-sm text-gray-800 mt-1">Группа {{ b.owner_group.name }}</div>
+        {% endif %}
       </a>
     {% else %}
       <div class="text-gray-500">Пока нет досок — создайте первую выше.</div>
