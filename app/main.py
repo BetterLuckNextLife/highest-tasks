@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 from flask import Flask, redirect, render_template, request, url_for, flash
 from flask_login import (
     LoginManager,
@@ -21,6 +22,7 @@ login_manager = LoginManager()
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
+
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -42,7 +44,31 @@ def create_app():
     login_manager.login_view = "login"
     return app
 
+
 app = create_app()
+
+
+MSK_OFFSET = timedelta(hours=3)
+
+
+def datetime_msk(value):
+    if not value:
+        return ""
+    local = value + MSK_OFFSET
+    return local.strftime("%d.%m.%Y %H:%M (МСК)")
+
+
+def datetime_msk_input(value):
+    if not value:
+        return ""
+    local = value + MSK_OFFSET
+    local = local.replace(second=0, microsecond=0)
+    return local.strftime("%d.%m.%Y %H:%M")
+
+
+app.jinja_env.filters["datetime_msk"] = datetime_msk
+app.jinja_env.filters["datetime_msk_input"] = datetime_msk_input
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -68,12 +94,14 @@ def login():
             error = "Логин или пароль не верен!"
     return render_template("login.html", error=error)
 
+
 @app.route("/logout")
 @login_required
 def logout():
     logout_user()
     flash("Вы вышли из аккаунта.", "info")
     return redirect(url_for("login"))
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -120,6 +148,7 @@ def boards():
                 user_boards.append(brd)
     return render_template("boards.html", boards=user_boards, error=error)
 
+
 @app.route("/board/<int:board_id>", methods=["GET", "POST"])
 @login_required
 def board(board_id):
@@ -138,14 +167,24 @@ def board(board_id):
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         status = request.form.get("status", "ideas")
-        description = request.form.get("description", "")
+        task_creator = request.form.get("task_creator", current_user.username or "").strip()
+        task_assignee = request.form.get("task_assignee", "").strip()
+        task_description = request.form.get("task_description")
+        if task_description is None:
+            task_description = request.form.get("description", "")
+        task_description = task_description.strip()
+        if not task_creator:
+            task_creator = current_user.username or ""
         if name and status in [s for s, _ in statuses]:
             card = Card(
                 name=name,
-                description=description,
+                task_creator=task_creator,
+                task_assignee=task_assignee,
+                task_description=task_description,
                 status=status,
                 deadline=None,
                 board_id=board.id,
+                created_at=datetime.utcnow(),
             )
             db.session.add(card)
             db.session.commit()
@@ -190,10 +229,52 @@ def add_board_to_group():
     return redirect(url_for("board", board_id=board_id))
 
 
+    return render_template("board.html", tasks=tasks, statuses=statuses, board=board)
+
+
+@app.route("/board/<int:board_id>/card/<int:card_id>", methods=["GET", "POST"])
+@login_required
+def card_detail(board_id, card_id):
+    board = Board.query.filter_by(id=board_id, owner_id=current_user.id).first_or_404()
+    card = Card.query.filter_by(board_id=board.id, id=card_id).first_or_404()
+
+    error = None
+    form_description = None
+    form_deadline = None
+
+    if request.method == "POST":
+        form_description = request.form.get("task_description", "").strip()
+        form_deadline = request.form.get("deadline", "").strip()
+        new_deadline = None
+        if form_deadline:
+            try:
+                deadline_local = datetime.strptime(form_deadline, "%d.%m.%Y %H:%M")
+                new_deadline = deadline_local - MSK_OFFSET
+            except ValueError:
+                error = "Неверный формат даты/времени дедлайна. Используйте ДД.ММ.ГГГГ ЧЧ:ММ."
+
+        if not error:
+            card.task_description = form_description
+            card.deadline = new_deadline
+            db.session.commit()
+            flash("Задача обновлена", "success")
+            return redirect(url_for("card_detail", board_id=board.id, card_id=card.id))
+
+    return render_template(
+        "card_detail.html",
+        board=board,
+        card=card,
+        error=error,
+        form_description=form_description,
+        form_deadline=form_deadline,
+    )
+
+
 @app.route("/profile", methods=["GET"])
 @login_required
 def profile():
     return render_template("profile.html")
+
 
 @app.route("/profile/edit", methods=["GET", "POST"])
 @login_required

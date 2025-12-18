@@ -62,7 +62,9 @@ class Card(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text, default="")
+    task_creator = db.Column(db.String(128), nullable=False, default="")
+    task_assignee = db.Column(db.String(128), nullable=False, default="")
+    task_description = db.Column(db.Text, default="")
     deadline = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -71,4 +73,3 @@ class Card(db.Model):
 
     board_id = db.Column(db.Integer, db.ForeignKey("boards.id"), nullable=False)
     board = db.relationship("Board", back_populates="cards")
-
