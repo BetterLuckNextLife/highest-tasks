@@ -1,32 +1,53 @@
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
+from datetime import datetime
 
 db = SQLAlchemy()
 
-
+# -------------------- User --------------------
 class User(db.Model, UserMixin):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(64), nullable=False)
+    # логин должен быть уникальным
+    username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
 
+    # поля личного кабинета
+    full_name = db.Column(db.String(128), default="")
+    bio = db.Column(db.String(512), default="")
+    avatar_url = db.Column(db.String(255), default="")  # /static/uploads/...
+    boards = db.relationship("Board", back_populates="owner", cascade="all, delete-orphan")
 
+    # хелперы пароля (опционально, чтобы не повторять вью-функции)
+    def set_password(self, password: str) -> None:
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password: str) -> bool:
+        return check_password_hash(self.password_hash, password)
+
+# -------------------- Board --------------------
 class Board(db.Model):
     __tablename__ = "boards"
-
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False)
-    cards = db.relationship("Card", back_populates="board")
-
-
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    owner = db.relationship("User", back_populates="boards")
+    cards = db.relationship("Card", back_populates="board", cascade="all, delete-orphan")
+# -------------------- Card --------------------
 class Card(db.Model):
     __tablename__ = "cards"
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text)
-    deadline = db.Column(db.DateTime)
+    description = db.Column(db.Text, default="")
+    deadline = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    # статусы: ideas, todo, wip, done
+    status = db.Column(db.String(20), nullable=False, default="ideas")
+
     board_id = db.Column(db.Integer, db.ForeignKey("boards.id"), nullable=False)
     board = db.relationship("Board", back_populates="cards")
-    status = db.Column(db.String(20), nullable=False)  # idea, todo, wip, done
+

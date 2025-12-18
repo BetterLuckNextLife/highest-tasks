@@ -8,6 +8,7 @@ from flask_login import (
     current_user,
 )
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 try:
     from db import db, Card, User, Board
@@ -17,6 +18,13 @@ except ImportError as exc:
 
 login_manager = LoginManager()
 
+# ---------- uploads config ----------
+UPLOAD_FOLDER = os.path.join("static", "uploads")
+ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+def allowed_file(filename: str) -> bool:
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+# ------------------------------------
 
 def create_app():
     app = Flask(__name__)
@@ -24,29 +32,33 @@ def create_app():
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["SECRET_KEY"] = os.getenv("APP_SECRET_KEY")
 
+    # ensure upload dir
+    app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
     db.init_app(app)
     with app.app_context():
         db.create_all()
 
     login_manager.init_app(app)
     login_manager.login_view = "login"
-
     return app
 
-
 app = create_app()
-
 
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
-
+# --------------------- HOME ---------------------
 @app.route("/")
 def index():
+    if current_user.is_authenticated:
+        return render_template("home_authenticated.html")
     return render_template("index.html")
+# ------------------------------------------------
 
-
+# --------------------- AUTH ---------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     error = None
@@ -56,11 +68,10 @@ def login():
         user = User.query.filter_by(username=username).first()
         if user and check_password_hash(user.password_hash, password):
             login_user(user)
-            return redirect(url_for("board"))
+            return redirect(url_for("boards"))  # после входа идём к списку досок
         else:
             error = "Логин или пароль не верен!"
     return render_template("login.html", error=error)
-
 
 @app.route("/logout")
 @login_required
@@ -68,7 +79,6 @@ def logout():
     logout_user()
     flash("Вы вышли из аккаунта.", "info")
     return redirect(url_for("login"))
-
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -92,11 +102,33 @@ def register():
             flash("Аккаунт создан! Теперь войдите.", "success")
             return redirect(url_for("login"))
     return render_template("register.html", error=error)
+# ------------------------------------------------
 
-
-@app.route("/board", methods=["GET", "POST"])
+# --------------------- BOARDS (multi) ---------------------
+@app.route("/boards", methods=["GET", "POST"])
 @login_required
-def board():
+def boards():
+    error = None
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if not name:
+            error = "Введите название доски."
+        else:
+            # ВНИМАНИЕ: требуется поле owner_id в модели Board
+            b = Board(name=name, owner_id=current_user.id)
+            db.session.add(b)
+            db.session.commit()
+            flash("Доска создана", "success")
+            return redirect(url_for("boards"))
+    user_boards = Board.query.filter_by(owner_id=current_user.id).order_by(Board.id.desc()).all()
+    return render_template("boards.html", boards=user_boards, error=error)
+
+@app.route("/board/<int:board_id>", methods=["GET", "POST"])
+@login_required
+def board(board_id):
+    # доступ только к своей доске
+    board = Board.query.filter_by(id=board_id, owner_id=current_user.id).first_or_404()
+
     statuses = [
         ("ideas", "Идеи"),
         ("todo", "To Do"),
@@ -113,15 +145,52 @@ def board():
                 description=description,
                 status=status,
                 deadline=None,
-                board_id=1,
+                board_id=board.id,
             )
             db.session.add(card)
             db.session.commit()
             flash("Задача добавлена!", "success")
-            return redirect(url_for("board"))
-    tasks = Card.query.order_by(Card.id.desc()).all()
-    return render_template("board.html", tasks=tasks, statuses=statuses)
+            return redirect(url_for("board", board_id=board.id))
+    tasks = Card.query.filter_by(board_id=board.id).order_by(Card.id.desc()).all()
+    return render_template("board.html", tasks=tasks, statuses=statuses, board=board)
+# ----------------------------------------------------------
 
+# --------------------- PROFILE ---------------------
+@app.route("/profile", methods=["GET"])
+@login_required
+def profile():
+    return render_template("profile.html")
+
+@app.route("/profile/edit", methods=["GET", "POST"])
+@login_required
+def profile_edit():
+    error = None
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        bio = request.form.get("bio", "").strip()
+
+        current_user.full_name = full_name
+        current_user.bio = bio
+
+        file = request.files.get("avatar")
+        if file and file.filename:
+            if not allowed_file(file.filename):
+                error = "Неверный формат файла. Разрешены: png, jpg, jpeg, gif, webp."
+            else:
+                fname = secure_filename(file.filename)
+                name, ext = os.path.splitext(fname)
+                final_name = f"{current_user.id}_{name}{ext}"
+                save_path = os.path.join(app.config["UPLOAD_FOLDER"], final_name)
+                file.save(save_path)
+                current_user.avatar_url = f"/{save_path.replace(os.sep, '/')}"
+
+        if not error:
+            db.session.commit()
+            flash("Профиль обновлён", "success")
+            return redirect(url_for("profile"))
+
+    return render_template("profile_edit.html", error=error)
+# --------------------------------------------------
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7007, debug=True)

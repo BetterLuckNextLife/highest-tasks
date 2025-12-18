@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto py-10 px-4">
+  <div class="bg-white shadow rounded-lg p-6">
+    <div class="flex items-center gap-4">
+      <img
+        src="{{ current_user.avatar_url or 'https://api.dicebear.com/7.x/initials/svg?seed=' ~ current_user.username }}"
+        class="w-24 h-24 rounded-full object-cover border" alt="avatar">
+      <div>
+        <h1 class="text-2xl font-bold">{{ current_user.full_name or current_user.username }}</h1>
+        <p class="text-gray-600">@{{ current_user.username }}</p>
+      </div>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h2 class="text-lg font-semibold mb-2">О себе</h2>
+        <p class="text-gray-700 whitespace-pre-line">{{ current_user.bio or 'Пока пусто.' }}</p>
+      </div>
+      <div>
+        <h2 class="text-lg font-semibold mb-2">Быстрые действия</h2>
+        <div class="flex flex-wrap gap-3">
+         <a href="{{ url_for('profile_edit') }}"
+             class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Редактировать</a>
+         <a href="{{ url_for('boards') }}"
+             class="px-4 py-2 border rounded text-gray-700 hover:bg-gray-50">К доскам задач</a>
+         <a href="{{ url_for('logout') }}"
+             class="px-4 py-2 border rounded text-red-600 border-red-300 hover:bg-red-50">Выйти</a>
+        </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
