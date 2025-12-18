@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ card.name }}{% endblock %}
+{% block content %}
+<div class="py-10 space-y-6">
+  <a href="{{ url_for('board', board_id=board.id) }}" class="text-blue-600 hover:underline text-sm">← Назад к доске</a>
+  <div class="bg-white rounded-lg shadow p-6 space-y-6">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p class="text-sm text-gray-500">Доска: {{ board.name }}</p>
+        <h1 class="text-2xl font-semibold text-gray-800">{{ card.name }}</h1>
+      </div>
+      <span class="text-xs px-3 py-1 rounded-full uppercase tracking-wide
+        {% if card.status == 'done' %}bg-green-100 text-green-700{% elif card.status == 'wip' %}bg-yellow-100 text-yellow-700{% elif card.status == 'ideas' %}bg-purple-200 text-purple-700{% else %}bg-red-100 text-red-700{% endif %}">
+        {{ card.status }}
+      </span>
+    </div>
+    <div class="grid md:grid-cols-2 gap-4">
+      <div class="space-y-2">
+        <p class="text-sm font-semibold text-gray-600">Создатель</p>
+        <p class="text-gray-800">{{ card.task_creator or 'Не указано' }}</p>
+      </div>
+      <div class="space-y-2">
+        <p class="text-sm font-semibold text-gray-600">Исполнитель</p>
+        <p class="text-gray-800">{{ card.task_assignee or 'Не назначен' }}</p>
+      </div>
+      <div class="space-y-2">
+        <p class="text-sm font-semibold text-gray-600">Создана</p>
+        <p class="text-gray-800">
+          {% if card.created_at %}{{ card.created_at|datetime_msk }}{% else %}—{% endif %}
+        </p>
+      </div>
+      <div class="space-y-2">
+        <p class="text-sm font-semibold text-gray-600">Дедлайн</p>
+        <p class="text-gray-800">{% if card.deadline %}{{ card.deadline|datetime_msk }}{% else %}Не задан{% endif %}</p>
+      </div>
+    </div>
+    <div class="space-y-4">
+      <div>
+        <p class="text-sm font-semibold text-gray-600">Описание и дедлайн</p>
+        {% if error %}
+        <div class="mt-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {{ error }}
+        </div>
+        {% endif %}
+      </div>
+      <form method="post" class="space-y-4">
+        <div class="space-y-1">
+          <label for="task_description" class="text-sm text-gray-600">Описание</label>
+          <textarea id="task_description" name="task_description" rows="6" placeholder="Добавьте описание"
+                    class="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-blue-200">{{ form_description if form_description is not none else card.task_description }}</textarea>
+        </div>
+        <div class="space-y-1">
+          <label for="card_deadline" class="text-sm text-gray-600">Дедлайн</label>
+          {% set deadline_value = form_deadline if form_deadline is not none else (card.deadline|datetime_msk_input) %}
+          <input type="text" id="card_deadline" name="deadline" value="{{ deadline_value }}"
+                 placeholder="ДД.ММ.ГГГГ ЧЧ:ММ"
+                 class="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-blue-200"/>
+          <p class="text-xs text-gray-500">Пример: 23.05.2025 14:30. Оставьте поле пустым, чтобы убрать дедлайн.</p>
+        </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 w-full sm:w-auto">Сохранить изменения</button>
+      </form>
+      {% if not card.task_description %}
+        <p class="text-sm text-gray-400">Пока нет описания — добавьте его выше.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
