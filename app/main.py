@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from flask import Flask, redirect, render_template, request, url_for, flash
+from flask import Flask, redirect, render_template, request, url_for, flash, jsonify
 from flask_login import (
     LoginManager,
     login_required,
@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 try:
     from db import db, Card, User, Board, Group
 except ImportError as exc:
-    from app.db import db, Card, User, Board
+    from app.db import db, Card, User, Board, Group
 
 login_manager = LoginManager()
 
@@ -364,6 +364,48 @@ def remove_user_from_group():
         db.session.commit()
         flash("Пользователь удалён из группы", "info")
     return redirect(url_for("group_detail", group_id=group_id))
+
+
+@app.route("/card/move", methods=["POST"])
+@login_required
+def move_card():
+    data = None
+    try:
+        data = request.get_json(force=True)
+    except Exception:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    card_id = data.get("card_id")
+    new_status = data.get("new_status")
+    if not card_id or not new_status:
+        return jsonify({"error": "card_id and new_status are required"}), 400
+
+    try:
+        card_id_int = int(card_id)
+    except (ValueError, TypeError):
+        return jsonify({"error": "Invalid card_id"}), 400
+
+    card = Card.query.filter_by(id=card_id_int).first()
+    if not card:
+        return jsonify({"error": "Card not found"}), 404
+
+    board = Board.query.filter_by(id=card.board_id).first()
+    if not board:
+        return jsonify({"error": "Board not found"}), 404
+
+    if current_user != board.owner and (board.owner_group is None or current_user not in board.owner_group.users):
+        return jsonify({"error": "Permission denied"}), 403
+
+    valid_statuses = {"ideas", "todo", "wip", "done"}
+    if new_status not in valid_statuses:
+        return jsonify({"error": "Invalid status"}), 400
+
+    card.status = new_status
+    db.session.commit()
+    return jsonify({"ok": True, "card_id": card.id, "new_status": card.status}), 200
 
 
 if __name__ == "__main__":
