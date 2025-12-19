@@ -1,3 +1,5 @@
+"""Описание моделей БД для Highest Tasks."""
+
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -5,6 +7,7 @@ from flask_login import UserMixin
 from datetime import datetime
 
 db = SQLAlchemy()
+"""Глобальный объект SQLAlchemy для работы с приложением."""
 
 
 class User(db.Model, UserMixin):
@@ -41,7 +44,7 @@ class User(db.Model, UserMixin):
             password: Пароль в открытом виде.
 
         Returns:
-            bool: True, если пароль верен.
+            True, если пароль верен.
         """
         return check_password_hash(self.password_hash, password)
 

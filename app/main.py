@@ -1,3 +1,5 @@
+"""Веб-приложение Highest Tasks на Flask."""
+
 import os
 from datetime import datetime, timedelta
 from flask import Flask, redirect, render_template, request, url_for, flash, jsonify
@@ -17,9 +19,13 @@ except ImportError as exc:
     from app.db import db, Card, User, Board, Group
 
 login_manager = LoginManager()
+"""LoginManager, отвечающий за авторизацию пользователей."""
 
 UPLOAD_FOLDER = os.path.join("static", "uploads")
+"""Каталог для сохранения загруженных файлов."""
+
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+"""Набор допустимых расширений для файлов пользователя."""
 
 
 def allowed_file(filename: str) -> bool:
@@ -29,7 +35,7 @@ def allowed_file(filename: str) -> bool:
         filename: Имя файла, полученное от клиента.
 
     Returns:
-        bool: True, если расширение входит в ALLOWED_EXTENSIONS, иначе False.
+        True, если расширение входит в ALLOWED_EXTENSIONS, иначе False.
     """
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -38,7 +44,7 @@ def create_app():
     """Создаёт и настраивает экземпляр Flask-приложения.
 
     Returns:
-        Flask: Инициализированное приложение с подключённой БД и LoginManager.
+        Инициализированное приложение с подключённой БД и LoginManager.
     """
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
@@ -59,18 +65,20 @@ def create_app():
 
 
 app = create_app()
+"""Глобальный экземпляр Flask-приложения."""
 
 MSK_OFFSET = timedelta(hours=3)
+"""Смещение по времени относительно UTC для МСК."""
 
 
 def datetime_msk(value):
     """Форматирует дату-время в строку с МСК.
 
     Args:
-        value (datetime | None): Исходное UTC-время.
+        value: Исходное UTC-время.
 
     Returns:
-        str: Отформатированная строка или пустая строка, если значение не задано.
+        Строка с человеком-понятным форматом или пустая строка, если значение не задано.
     """
     if not value:
         return ""
@@ -82,10 +90,10 @@ def datetime_msk_input(value):
     """Готовит дату-время для предварительного заполнения HTML-поля в МСК.
 
     Args:
-        value (datetime | None): Исходное UTC-время.
+        value: Исходное UTC-время.
 
     Returns:
-        str: Строка в формате ДД.ММ.ГГГГ ЧЧ:ММ или пустая строка.
+        Строка в формате ДД.ММ.ГГГГ ЧЧ:ММ или пустая строка.
     """
     if not value:
         return ""
@@ -103,10 +111,10 @@ def load_user(user_id):
     """Загружает пользователя по идентификатору для Flask-Login.
 
     Args:
-        user_id (str): Идентификатор пользователя из сессии.
+        user_id: Идентификатор пользователя из сессии.
 
     Returns:
-        User | None: Объект пользователя или None, если не найден.
+        Объект пользователя или None, если не найден.
     """
     return db.session.get(User, int(user_id))
 
@@ -201,7 +209,7 @@ def board(board_id):
     """Отображает доску и обрабатывает создание карточек.
 
     Args:
-        board_id (int): Идентификатор доски.
+        board_id: Идентификатор доски.
     """
     # доступ только к своей доске
     board = Board.query.filter_by(id=board_id).first_or_404()
@@ -300,8 +308,8 @@ def card_detail(board_id, card_id):
     """Отображает карточку и позволяет обновить описание и дедлайн.
 
     Args:
-        board_id (int): Идентификатор доски.
-        card_id (int): Идентификатор карточки.
+        board_id: Идентификатор доски.
+        card_id: Идентификатор карточки.
     """
     board = Board.query.filter_by(id=board_id, owner_id=current_user.id).first_or_404()
     card = Card.query.filter_by(board_id=board.id, id=card_id).first_or_404()
@@ -400,7 +408,7 @@ def group_detail(group_id):
     """Показывает состав группы и добавляет участников.
 
     Args:
-        group_id (int): Идентификатор группы.
+        group_id: Идентификатор группы.
     """
     grp = Group.query.filter_by(id=group_id).first_or_404()
     if request.method == "POST":
