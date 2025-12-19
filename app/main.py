@@ -12,14 +12,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
 try:
-    from db import db, Card, User, Board
+    from db import db, Card, User, Board, Group
 except ImportError as exc:
     from app.db import db, Card, User, Board
 
-
 login_manager = LoginManager()
 
-# ---------- uploads config ----------
 UPLOAD_FOLDER = os.path.join("static", "uploads")
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
@@ -49,7 +47,6 @@ def create_app():
 
 app = create_app()
 
-
 MSK_OFFSET = timedelta(hours=3)
 
 
@@ -77,7 +74,6 @@ def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
-# --------------------- HOME ---------------------
 @app.route("/")
 def index():
     if current_user.is_authenticated:
@@ -85,10 +81,6 @@ def index():
     return render_template("index.html")
 
 
-# ------------------------------------------------
-
-
-# --------------------- AUTH ---------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
     error = None
@@ -136,10 +128,6 @@ def register():
     return render_template("register.html", error=error)
 
 
-# ------------------------------------------------
-
-
-# --------------------- BOARDS (multi) ---------------------
 @app.route("/boards", methods=["GET", "POST"])
 @login_required
 def boards():
@@ -155,9 +143,11 @@ def boards():
             db.session.commit()
             flash("Доска создана", "success")
             return redirect(url_for("boards"))
-    user_boards = (
-        Board.query.filter_by(owner_id=current_user.id).order_by(Board.id.desc()).all()
-    )
+    user_boards = Board.query.filter_by(owner_id=current_user.id).order_by(Board.id.desc()).all()
+    for grp in current_user.groups:
+        for brd in grp.boards:
+            if brd not in user_boards:
+                user_boards.append(brd)
     return render_template("boards.html", boards=user_boards, error=error)
 
 
@@ -165,7 +155,10 @@ def boards():
 @login_required
 def board(board_id):
     # доступ только к своей доске
-    board = Board.query.filter_by(id=board_id, owner_id=current_user.id).first_or_404()
+    board = Board.query.filter_by(id=board_id).first_or_404()
+    if current_user != board.owner and (board.owner_group is None or current_user not in board.owner_group.users):
+        flash("У вас нет доступа к этой доске", "error")
+        return redirect(url_for("boards"))
 
     statuses = [
         ("ideas", "Идеи"),
@@ -200,7 +193,50 @@ def board(board_id):
             flash("Задача добавлена!", "success")
             return redirect(url_for("board", board_id=board.id))
     tasks = Card.query.filter_by(board_id=board.id).order_by(Card.id.desc()).all()
-    return render_template("board.html", tasks=tasks, statuses=statuses, board=board)
+    available_groups = current_user.groups
+    return render_template(
+        "board.html",
+        tasks=tasks,
+        statuses=statuses,
+        board=board,
+        available_groups=available_groups
+    )
+
+
+@app.route("/board/remove_group", methods=["POST"])
+@login_required
+def remove_board_from_group():
+    board_id = request.form.get("board_id")
+    board = Board.query.filter_by(id=board_id).first_or_404()
+
+    if current_user not in board.owner_group.users or current_user != board.owner:
+        flash("У вас нет прав на изменение этой группы", "error")
+        return redirect(url_for("board", board_id=board_id))
+
+    board.owner_group = None
+    db.session.commit()
+    flash("Доска удалена из группы", "info")
+
+    return redirect(url_for("board", board_id=board_id))
+
+
+@app.route("/board/add_group", methods=["POST"])
+@login_required
+def add_board_to_group():
+    board_id = request.form.get("board_id")
+    group_id = request.form.get("group_id")
+    board = Board.query.filter_by(id=board_id).first_or_404()
+    group = Group.query.filter_by(id=group_id).first_or_404()
+
+    if current_user not in group.users or current_user != board.owner:
+        flash("У вас нет прав на изменение этой группы", "error")
+        return redirect(url_for("board", board_id=board_id))
+
+    board.owner_group = group
+    db.session.commit()
+    flash("Доска добавлена в группу", "success")
+
+    return redirect(url_for("board", board_id=board_id))
 
 
 @app.route("/board/<int:board_id>/card/<int:card_id>", methods=["GET", "POST"])
@@ -241,10 +277,6 @@ def card_detail(board_id, card_id):
     )
 
 
-# ----------------------------------------------------------
-
-
-# --------------------- PROFILE ---------------------
 @app.route("/profile", methods=["GET"])
 @login_required
 def profile():
@@ -282,7 +314,57 @@ def profile_edit():
     return render_template("profile_edit.html", error=error)
 
 
-# --------------------------------------------------
+@app.route("/groups", methods=["GET", "POST"])
+@login_required
+def groups():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        if name:
+            new_group = Group(name=name)
+            new_group.users.append(current_user)
+            db.session.add(new_group)
+            db.session.commit()
+            flash("Группа создана", "success")
+            return redirect(url_for("groups"))
+    cur_groups = current_user.groups
+    return render_template("groups.html", groups=cur_groups)
+
+
+@app.route("/group/<int:group_id>", methods=["GET", "POST"])
+@login_required
+def group_detail(group_id):
+    grp = Group.query.filter_by(id=group_id).first_or_404()
+    if request.method == "POST":
+        user_id = request.form.get("user_id")
+        user = User.query.filter_by(id=user_id).first()
+        if user and user not in grp.users:
+            grp.users.append(user)
+            db.session.commit()
+            flash("Пользователь добавлен в группу", "success")
+            return redirect(url_for("group_detail", group_id=group_id))
+    all_users = User.query.all()
+    return render_template("group_details.html", group=grp, all_users=all_users)
+
+
+@app.route("/group/delete", methods=["POST"])
+@login_required
+def remove_user_from_group():
+    group_id = request.form.get("group_id")
+    user_id = request.form.get("user_id")
+    grp = Group.query.filter_by(id=group_id).first_or_404()
+    user = User.query.filter_by(id=user_id).first()
+    if current_user not in grp.users:
+        flash("У вас нет прав на изменение этой группы", "error")
+        return redirect(url_for("groups"))
+    if current_user == user:
+        flash("Вы не можете удалить себя из группы", "error")
+        return redirect(url_for("group_detail", group_id=group_id))
+    if user and user in grp.users:
+        grp.users.remove(user)
+        db.session.commit()
+        flash("Пользователь удалён из группы", "info")
+    return redirect(url_for("group_detail", group_id=group_id))
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=7007, debug=True)
