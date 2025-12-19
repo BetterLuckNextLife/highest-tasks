@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Главная{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto bg-white shadow rounded p-8 mt-10 text-center">
+  <h1 class="text-3xl font-bold text-blue-600 mb-4">Добро пожаловать!</h1>
+  <p class="text-gray-600">Войдите или зарегистрируйтесь, чтобы управлять своими досками и задачами.</p>
+
+  <div class="flex flex-col gap-4 mt-6">
+    <a href="{{ url_for('login') }}"
+       class="w-full px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700 transition">
+      Вход
+    </a>
+    <a href="{{ url_for('register') }}"
+       class="w-full px-4 py-2 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 transition">
+      Регистрация
+    </a>
+    <a href="{{ url_for('boards') }}"
+       class="w-full px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition">
+      К доскам задач
+    </a>
+  </div>
+</div>
+{% endblock %}

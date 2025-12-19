@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}Highest-tasks{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50">
+  <nav class="bg-white border-b shadow px-4 py-2 mb-6">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <a class="text-xl font-semibold text-blue-600" href="{{ url_for('index') }}">Highest-tasks</a>
+      <div class="flex items-center gap-4">
+        {% if current_user.is_authenticated %}
+          <a class="text-sm text-blue-600 hover:underline" href="{{ url_for('boards') }}">Доски</a>
+          <a class="text-sm text-blue-600 hover:underline" href="{{ url_for('groups') }}">Группы</a>
+          <a class="text-sm text-blue-600 hover:underline" href="{{ url_for('profile') }}">Профиль</a>
+          <a class="text-sm text-gray-600 hover:underline" href="{{ url_for('logout') }}">Выход</a>
+        {% else %}
+          <a class="text-sm text-blue-600 hover:underline" href="{{ url_for('register') }}">Регистрация</a>
+          <a class="text-sm text-blue-600 hover:underline" href="{{ url_for('login') }}">Вход</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <!-- flash messages -->
+  <div class="max-w-6xl mx-auto px-4">
+    {% for category, message in get_flashed_messages(with_categories=True) %}
+      <div class="mb-4 px-4 py-2 rounded border
+                  {% if category == 'success' %}bg-green-100 text-green-700 border-green-300
+                  {% elif category == 'info' %}bg-blue-100 text-blue-700 border-blue-300
+                  {% elif category == 'warning' %}bg-yellow-100 text-yellow-800 border-yellow-300
+                  {% else %}bg-red-100 text-red-700 border-red-300{% endif %}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+
+  <main class="max-w-6xl mx-auto px-4">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
