@@ -1,3 +1,5 @@
+"""Описание моделей БД для Highest Tasks."""
+
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -5,9 +7,12 @@ from flask_login import UserMixin
 from datetime import datetime
 
 db = SQLAlchemy()
+"""Глобальный объект SQLAlchemy для работы с приложением."""
 
 
 class User(db.Model, UserMixin):
+    """Модель пользователя с профилем и доступом к доскам."""
+
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -25,13 +30,28 @@ class User(db.Model, UserMixin):
 
     # хелперы пароля (опционально, чтобы не повторять вью-функции)
     def set_password(self, password: str) -> None:
+        """Сохраняет хеш пароля пользователя.
+
+        Args:
+            password: Пароль в открытом виде.
+        """
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password: str) -> bool:
+        """Проверяет пароль пользователя.
+
+        Args:
+            password: Пароль в открытом виде.
+
+        Returns:
+            True, если пароль верен.
+        """
         return check_password_hash(self.password_hash, password)
 
 
 class Group(db.Model):
+    """Группа пользователей, объединённых для совместной работы."""
+
     __tablename__ = "groups"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False)
@@ -40,6 +60,8 @@ class Group(db.Model):
 
 
 class GroupMembership(db.Model):
+    """Связующая таблица между пользователями и группами."""
+
     __tablename__ = "group_memberships"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
@@ -47,6 +69,8 @@ class GroupMembership(db.Model):
 
 
 class Board(db.Model):
+    """Модель доски задач, принадлежащей пользователю или группе."""
+
     __tablename__ = "boards"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), nullable=False)
@@ -58,6 +82,8 @@ class Board(db.Model):
 
 
 class Card(db.Model):
+    """Карточка задачи, принадлежащая конкретной доске."""
+
     __tablename__ = "cards"
 
     id = db.Column(db.Integer, primary_key=True)
