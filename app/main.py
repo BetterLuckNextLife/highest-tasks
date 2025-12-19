@@ -16,7 +16,6 @@ try:
 except ImportError as exc:
     from app.db import db, Card, User, Board
 
-
 login_manager = LoginManager()
 
 UPLOAD_FOLDER = os.path.join("static", "uploads")
@@ -25,6 +24,7 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 def allowed_file(filename: str) -> bool:
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def create_app():
     app = Flask(__name__)
@@ -46,7 +46,6 @@ def create_app():
 
 
 app = create_app()
-
 
 MSK_OFFSET = timedelta(hours=3)
 
@@ -74,11 +73,13 @@ app.jinja_env.filters["datetime_msk_input"] = datetime_msk_input
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
+
 @app.route("/")
 def index():
     if current_user.is_authenticated:
         return render_template("home_authenticated.html")
     return render_template("index.html")
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -125,6 +126,7 @@ def register():
             flash("Аккаунт создан! Теперь войдите.", "success")
             return redirect(url_for("login"))
     return render_template("register.html", error=error)
+
 
 @app.route("/boards", methods=["GET", "POST"])
 @login_required
@@ -192,7 +194,14 @@ def board(board_id):
             return redirect(url_for("board", board_id=board.id))
     tasks = Card.query.filter_by(board_id=board.id).order_by(Card.id.desc()).all()
     available_groups = current_user.groups
-    return render_template("board.html", tasks=tasks, statuses=statuses, board=board, available_groups=available_groups)
+    return render_template(
+        "board.html",
+        tasks=tasks,
+        statuses=statuses,
+        board=board,
+        available_groups=available_groups
+    )
+
 
 @app.route("/board/remove_group", methods=["POST"])
 @login_required
@@ -209,6 +218,7 @@ def remove_board_from_group():
     flash("Доска удалена из группы", "info")
 
     return redirect(url_for("board", board_id=board_id))
+
 
 @app.route("/board/add_group", methods=["POST"])
 @login_required
@@ -227,9 +237,6 @@ def add_board_to_group():
     flash("Доска добавлена в группу", "success")
 
     return redirect(url_for("board", board_id=board_id))
-
-
-    return render_template("board.html", tasks=tasks, statuses=statuses, board=board)
 
 
 @app.route("/board/<int:board_id>/card/<int:card_id>", methods=["GET", "POST"])
@@ -306,6 +313,7 @@ def profile_edit():
 
     return render_template("profile_edit.html", error=error)
 
+
 @app.route("/groups", methods=["GET", "POST"])
 @login_required
 def groups():
@@ -321,6 +329,7 @@ def groups():
     cur_groups = current_user.groups
     return render_template("groups.html", groups=cur_groups)
 
+
 @app.route("/group/<int:group_id>", methods=["GET", "POST"])
 @login_required
 def group_detail(group_id):
@@ -335,6 +344,7 @@ def group_detail(group_id):
             return redirect(url_for("group_detail", group_id=group_id))
     all_users = User.query.all()
     return render_template("group_details.html", group=grp, all_users=all_users)
+
 
 @app.route("/group/delete", methods=["POST"])
 @login_required
