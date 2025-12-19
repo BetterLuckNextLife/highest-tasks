@@ -1,4 +1,7 @@
-# Тесты рендера и редиректов
+import re
+from random import randint
+
+
 def test_pages_render(client):
     assert client.get("/").status_code == 200
     assert client.get("/login").status_code == 200
@@ -27,26 +30,30 @@ def test_login_success_redirect(client):
         follow_redirects=False,
     )
     assert r.status_code in (302, 303)
-    assert r.headers["Location"].endswith("/board")
-
-
-# Тесты /board
+    assert r.headers["Location"].endswith("/boards")
 
 
 def test_board_requires_auth(client):
-    r = client.get("/board", follow_redirects=False)
+    r = client.get("/boards", follow_redirects=False)
     assert r.status_code in (302, 303)
 
 
-def test_add_task_success(client):
-    client.post("/register", data={"username": "carol", "password": "verysecure"})
-    client.post("/login", data={"username": "carol", "password": "verysecure"})
+def test_create_board_and_task_success(client):
+    username = "carol" + str(randint(100, 200))
+    client.post("/register", data={"username": username, "password": "verysecure"})
+    client.post("/login", data={"username": username, "password": "verysecure"})
     r = client.post(
-        "/board",
-        data={"name": "Task A", "status": "ideas", "description": "desc"},
-        follow_redirects=False,
+        "/boards",
+        data={"name": "my board"},
+        follow_redirects=True,
     )
-    assert r.status_code in (302, 303)
-    page = client.get("/board")
-    assert page.status_code == 200
-    assert b"Task A" in page.data
+    assert r.status_code == 200
+    board_id = int(re.findall(rb"href=\"/board/(\d+)", r.data)[0])
+
+    r = client.post(
+        f"/board/{board_id}",
+        data={"name": "Crazy Task"},
+        follow_redirects=True
+    )
+    assert r.status_code == 200
+    assert b"Crazy Task" in r.data
