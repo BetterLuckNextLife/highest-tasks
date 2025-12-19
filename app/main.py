@@ -23,10 +23,23 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 
 def allowed_file(filename: str) -> bool:
+    """Проверяет допустимость расширения загружаемого файла.
+
+    Args:
+        filename: Имя файла, полученное от клиента.
+
+    Returns:
+        bool: True, если расширение входит в ALLOWED_EXTENSIONS, иначе False.
+    """
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def create_app():
+    """Создаёт и настраивает экземпляр Flask-приложения.
+
+    Returns:
+        Flask: Инициализированное приложение с подключённой БД и LoginManager.
+    """
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("SQLALCHEMY_DATABASE_URI")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -51,6 +64,14 @@ MSK_OFFSET = timedelta(hours=3)
 
 
 def datetime_msk(value):
+    """Форматирует дату-время в строку с МСК.
+
+    Args:
+        value (datetime | None): Исходное UTC-время.
+
+    Returns:
+        str: Отформатированная строка или пустая строка, если значение не задано.
+    """
     if not value:
         return ""
     local = value + MSK_OFFSET
@@ -58,6 +79,14 @@ def datetime_msk(value):
 
 
 def datetime_msk_input(value):
+    """Готовит дату-время для предварительного заполнения HTML-поля в МСК.
+
+    Args:
+        value (datetime | None): Исходное UTC-время.
+
+    Returns:
+        str: Строка в формате ДД.ММ.ГГГГ ЧЧ:ММ или пустая строка.
+    """
     if not value:
         return ""
     local = value + MSK_OFFSET
@@ -71,11 +100,20 @@ app.jinja_env.filters["datetime_msk_input"] = datetime_msk_input
 
 @login_manager.user_loader
 def load_user(user_id):
+    """Загружает пользователя по идентификатору для Flask-Login.
+
+    Args:
+        user_id (str): Идентификатор пользователя из сессии.
+
+    Returns:
+        User | None: Объект пользователя или None, если не найден.
+    """
     return db.session.get(User, int(user_id))
 
 
 @app.route("/")
 def index():
+    """Отображает лендинг или домашнюю страницу для авторизованных пользователей."""
     if current_user.is_authenticated:
         return render_template("home_authenticated.html")
     return render_template("index.html")
@@ -83,6 +121,7 @@ def index():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    """Авторизует пользователя и перенаправляет к списку досок."""
     error = None
     if request.method == "POST":
         username = request.form.get("username")
@@ -99,6 +138,7 @@ def login():
 @app.route("/logout")
 @login_required
 def logout():
+    """Завершает сессию и возвращает пользователя на страницу входа."""
     logout_user()
     flash("Вы вышли из аккаунта.", "info")
     return redirect(url_for("login"))
@@ -106,6 +146,7 @@ def logout():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    """Создаёт нового пользователя после проверки входных данных."""
     error = None
     if request.method == "POST":
         username = request.form.get("username")
@@ -131,6 +172,7 @@ def register():
 @app.route("/boards", methods=["GET", "POST"])
 @login_required
 def boards():
+    """Возвращает список досок пользователя или создаёт новую доску."""
     error = None
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -143,7 +185,9 @@ def boards():
             db.session.commit()
             flash("Доска создана", "success")
             return redirect(url_for("boards"))
-    user_boards = Board.query.filter_by(owner_id=current_user.id).order_by(Board.id.desc()).all()
+    user_boards = (
+        Board.query.filter_by(owner_id=current_user.id).order_by(Board.id.desc()).all()
+    )
     for grp in current_user.groups:
         for brd in grp.boards:
             if brd not in user_boards:
@@ -154,9 +198,16 @@ def boards():
 @app.route("/board/<int:board_id>", methods=["GET", "POST"])
 @login_required
 def board(board_id):
+    """Отображает доску и обрабатывает создание карточек.
+
+    Args:
+        board_id (int): Идентификатор доски.
+    """
     # доступ только к своей доске
     board = Board.query.filter_by(id=board_id).first_or_404()
-    if current_user != board.owner and (board.owner_group is None or current_user not in board.owner_group.users):
+    if current_user != board.owner and (
+        board.owner_group is None or current_user not in board.owner_group.users
+    ):
         flash("У вас нет доступа к этой доске", "error")
         return redirect(url_for("boards"))
 
@@ -169,7 +220,9 @@ def board(board_id):
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         status = request.form.get("status", "ideas")
-        task_creator = request.form.get("task_creator", current_user.username or "").strip()
+        task_creator = request.form.get(
+            "task_creator", current_user.username or ""
+        ).strip()
         task_assignee = request.form.get("task_assignee", "").strip()
         task_description = request.form.get("task_description")
         if task_description is None:
@@ -199,13 +252,14 @@ def board(board_id):
         tasks=tasks,
         statuses=statuses,
         board=board,
-        available_groups=available_groups
+        available_groups=available_groups,
     )
 
 
 @app.route("/board/remove_group", methods=["POST"])
 @login_required
 def remove_board_from_group():
+    """Удаляет связь доски с группой."""
     board_id = request.form.get("board_id")
     board = Board.query.filter_by(id=board_id).first_or_404()
 
@@ -223,6 +277,7 @@ def remove_board_from_group():
 @app.route("/board/add_group", methods=["POST"])
 @login_required
 def add_board_to_group():
+    """Привязывает доску к выбранной группе."""
     board_id = request.form.get("board_id")
     group_id = request.form.get("group_id")
     board = Board.query.filter_by(id=board_id).first_or_404()
@@ -242,6 +297,12 @@ def add_board_to_group():
 @app.route("/board/<int:board_id>/card/<int:card_id>", methods=["GET", "POST"])
 @login_required
 def card_detail(board_id, card_id):
+    """Отображает карточку и позволяет обновить описание и дедлайн.
+
+    Args:
+        board_id (int): Идентификатор доски.
+        card_id (int): Идентификатор карточки.
+    """
     board = Board.query.filter_by(id=board_id, owner_id=current_user.id).first_or_404()
     card = Card.query.filter_by(board_id=board.id, id=card_id).first_or_404()
 
@@ -280,12 +341,14 @@ def card_detail(board_id, card_id):
 @app.route("/profile", methods=["GET"])
 @login_required
 def profile():
+    """Показывает профиль текущего пользователя."""
     return render_template("profile.html")
 
 
 @app.route("/profile/edit", methods=["GET", "POST"])
 @login_required
 def profile_edit():
+    """Позволяет редактировать профиль и загружать аватар."""
     error = None
     if request.method == "POST":
         full_name = request.form.get("full_name", "").strip()
@@ -317,6 +380,7 @@ def profile_edit():
 @app.route("/groups", methods=["GET", "POST"])
 @login_required
 def groups():
+    """Список групп пользователя и создание новой группы."""
     if request.method == "POST":
         name = request.form.get("name", "").strip()
         if name:
@@ -333,6 +397,11 @@ def groups():
 @app.route("/group/<int:group_id>", methods=["GET", "POST"])
 @login_required
 def group_detail(group_id):
+    """Показывает состав группы и добавляет участников.
+
+    Args:
+        group_id (int): Идентификатор группы.
+    """
     grp = Group.query.filter_by(id=group_id).first_or_404()
     if request.method == "POST":
         user_id = request.form.get("user_id")
@@ -349,6 +418,7 @@ def group_detail(group_id):
 @app.route("/group/delete", methods=["POST"])
 @login_required
 def remove_user_from_group():
+    """Удаляет пользователя из группы, если есть права."""
     group_id = request.form.get("group_id")
     user_id = request.form.get("user_id")
     grp = Group.query.filter_by(id=group_id).first_or_404()
@@ -369,6 +439,7 @@ def remove_user_from_group():
 @app.route("/card/move", methods=["POST"])
 @login_required
 def move_card():
+    """Обрабатывает перенос карточки между колонками через JSON-запрос."""
     data = None
     try:
         data = request.get_json(force=True)
@@ -396,7 +467,9 @@ def move_card():
     if not board:
         return jsonify({"error": "Board not found"}), 404
 
-    if current_user != board.owner and (board.owner_group is None or current_user not in board.owner_group.users):
+    if current_user != board.owner and (
+        board.owner_group is None or current_user not in board.owner_group.users
+    ):
         return jsonify({"error": "Permission denied"}), 403
 
     valid_statuses = {"ideas", "todo", "wip", "done"}
