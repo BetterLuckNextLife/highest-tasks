@@ -28,6 +28,30 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 """Набор допустимых расширений для файлов пользователя."""
 
 
+class UserFacingError(Exception):
+    """Исключение, отображаемое пользователю."""
+
+
+class ApiError(UserFacingError):
+    """Исключение для API-запросов с кодом ответа."""
+
+    def __init__(self, message: str, status_code: int = 400) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def ensure(condition: bool, message: str) -> None:
+    """Поднимает UserFacingError, если условие ложно."""
+    if not condition:
+        raise UserFacingError(message)
+
+
+def ensure_api(condition: bool, message: str, status_code: int = 400) -> None:
+    """Поднимает ApiError, если условие ложно."""
+    if not condition:
+        raise ApiError(message, status_code)
+
+
 def allowed_file(filename: str) -> bool:
     """Проверяет допустимость расширения загружаемого файла.
 
@@ -132,14 +156,16 @@ def login():
     """Авторизует пользователя и перенаправляет к списку досок."""
     error = None
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        user = User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password_hash, password):
+        try:
+            username = (request.form.get("username") or "").strip()
+            password = request.form.get("password") or ""
+            ensure(username and password, "Пожалуйста, заполните логин и пароль.")
+            user = User.query.filter_by(username=username).first()
+            ensure(user and check_password_hash(user.password_hash, password), "Логин или пароль не верен!")
             login_user(user)
-            return redirect(url_for("boards"))  # после входа идём к списку досок
-        else:
-            error = "Логин или пароль не верен!"
+            return redirect(url_for("boards"))
+        except UserFacingError as exc:
+            error = str(exc)
     return render_template("login.html", error=error)
 
 
@@ -157,23 +183,21 @@ def register():
     """Создаёт нового пользователя после проверки входных данных."""
     error = None
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if not username or not password:
-            error = "Пожалуйста, заполните все поля."
-        elif len(username) < 3:
-            error = "Логин должен быть от 3 символов."
-        elif len(password) < 8:
-            error = "Пароль должен быть минимум 8 символов."
-        elif User.query.filter_by(username=username).first():
-            error = "Логин уже занят!"
-        else:
+        try:
+            username = (request.form.get("username") or "").strip()
+            password = request.form.get("password") or ""
+            ensure(username and password, "Пожалуйста, заполните все поля.")
+            ensure(len(username) >= 3, "Логин должен быть от 3 символов.")
+            ensure(len(password) >= 8, "Пароль должен быть минимум 8 символов.")
+            ensure(not User.query.filter_by(username=username).first(), "Логин уже занят!")
             password_hash = generate_password_hash(password)
             new_user = User(username=username, password_hash=password_hash)
             db.session.add(new_user)
             db.session.commit()
             flash("Аккаунт создан! Теперь войдите.", "success")
             return redirect(url_for("login"))
+        except UserFacingError as exc:
+            error = str(exc)
     return render_template("register.html", error=error)
 
 
@@ -183,16 +207,16 @@ def boards():
     """Возвращает список досок пользователя или создаёт новую доску."""
     error = None
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        if not name:
-            error = "Введите название доски."
-        else:
-            # ВНИМАНИЕ: требуется поле owner_id в модели Board
+        try:
+            name = request.form.get("name", "").strip()
+            ensure(name, "Введите название доски.")
             b = Board(name=name, owner_id=current_user.id)
             db.session.add(b)
             db.session.commit()
             flash("Доска создана", "success")
             return redirect(url_for("boards"))
+        except UserFacingError as exc:
+            error = str(exc)
     user_boards = (
         Board.query.filter_by(owner_id=current_user.id).order_by(Board.id.desc()).all()
     )
@@ -211,12 +235,14 @@ def board(board_id):
     Args:
         board_id: Идентификатор доски.
     """
-    # доступ только к своей доске
     board = Board.query.filter_by(id=board_id).first_or_404()
-    if current_user != board.owner and (
-        board.owner_group is None or current_user not in board.owner_group.users
-    ):
-        flash("У вас нет доступа к этой доске", "error")
+    try:
+        has_group_access = (
+            board.owner_group is not None and current_user in board.owner_group.users
+        )
+        ensure(current_user == board.owner or has_group_access, "У вас нет доступа к этой доске")
+    except UserFacingError as exc:
+        flash(str(exc), "error")
         return redirect(url_for("boards"))
 
     statuses = [
@@ -226,19 +252,21 @@ def board(board_id):
         ("done", "Готово"),
     ]
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        status = request.form.get("status", "ideas")
-        task_creator = request.form.get(
-            "task_creator", current_user.username or ""
-        ).strip()
-        task_assignee = request.form.get("task_assignee", "").strip()
-        task_description = request.form.get("task_description")
-        if task_description is None:
-            task_description = request.form.get("description", "")
-        task_description = task_description.strip()
-        if not task_creator:
-            task_creator = current_user.username or ""
-        if name and status in [s for s, _ in statuses]:
+        try:
+            name = request.form.get("name", "").strip()
+            status = request.form.get("status", "ideas")
+            task_creator = request.form.get(
+                "task_creator", current_user.username or ""
+            ).strip()
+            task_assignee = request.form.get("task_assignee", "").strip()
+            task_description = request.form.get("task_description")
+            if task_description is None:
+                task_description = request.form.get("description", "")
+            task_description = task_description.strip()
+            if not task_creator:
+                task_creator = current_user.username or ""
+            ensure(name, "Название задачи не может быть пустым.")
+            ensure(status in [s for s, _ in statuses], "Неверный статус задачи.")
             card = Card(
                 name=name,
                 task_creator=task_creator,
@@ -253,6 +281,8 @@ def board(board_id):
             db.session.commit()
             flash("Задача добавлена!", "success")
             return redirect(url_for("board", board_id=board.id))
+        except UserFacingError as exc:
+            flash(str(exc), "error")
     tasks = Card.query.filter_by(board_id=board.id).order_by(Card.id.desc()).all()
     available_groups = current_user.groups
     return render_template(
@@ -271,8 +301,12 @@ def remove_board_from_group():
     board_id = request.form.get("board_id")
     board = Board.query.filter_by(id=board_id).first_or_404()
 
-    if current_user not in board.owner_group.users or current_user != board.owner:
-        flash("У вас нет прав на изменение этой группы", "error")
+    try:
+        ensure(board.owner_group is not None, "Доска не принадлежит группе.")
+        ensure(current_user in board.owner_group.users, "У вас нет прав на изменение этой группы")
+        ensure(current_user == board.owner, "Только владелец доски может менять группу")
+    except UserFacingError as exc:
+        flash(str(exc), "error")
         return redirect(url_for("board", board_id=board_id))
 
     board.owner_group = None
@@ -291,8 +325,11 @@ def add_board_to_group():
     board = Board.query.filter_by(id=board_id).first_or_404()
     group = Group.query.filter_by(id=group_id).first_or_404()
 
-    if current_user not in group.users or current_user != board.owner:
-        flash("У вас нет прав на изменение этой группы", "error")
+    try:
+        ensure(current_user in group.users, "У вас нет прав на изменение этой группы")
+        ensure(current_user == board.owner, "Только владелец доски может менять группу")
+    except UserFacingError as exc:
+        flash(str(exc), "error")
         return redirect(url_for("board", board_id=board_id))
 
     board.owner_group = group
@@ -319,22 +356,26 @@ def card_detail(board_id, card_id):
     form_deadline = None
 
     if request.method == "POST":
-        form_description = request.form.get("task_description", "").strip()
-        form_deadline = request.form.get("deadline", "").strip()
-        new_deadline = None
-        if form_deadline:
-            try:
-                deadline_local = datetime.strptime(form_deadline, "%d.%m.%Y %H:%M")
-                new_deadline = deadline_local - MSK_OFFSET
-            except ValueError:
-                error = "Неверный формат даты/времени дедлайна. Используйте ДД.ММ.ГГГГ ЧЧ:ММ."
+        try:
+            form_description = request.form.get("task_description", "").strip()
+            form_deadline = request.form.get("deadline", "").strip()
+            new_deadline = None
+            if form_deadline:
+                try:
+                    deadline_local = datetime.strptime(form_deadline, "%d.%m.%Y %H:%M")
+                    new_deadline = deadline_local - MSK_OFFSET
+                except ValueError as exc:
+                    raise UserFacingError(
+                        "Неверный формат даты/времени дедлайна. Используйте ДД.ММ.ГГГГ ЧЧ:ММ."
+                    ) from exc
 
-        if not error:
             card.task_description = form_description
             card.deadline = new_deadline
             db.session.commit()
             flash("Задача обновлена", "success")
             return redirect(url_for("card_detail", board_id=board.id, card_id=card.id))
+        except UserFacingError as exc:
+            error = str(exc)
 
     return render_template(
         "card_detail.html",
@@ -359,17 +400,19 @@ def profile_edit():
     """Позволяет редактировать профиль и загружать аватар."""
     error = None
     if request.method == "POST":
-        full_name = request.form.get("full_name", "").strip()
-        bio = request.form.get("bio", "").strip()
+        try:
+            full_name = request.form.get("full_name", "").strip()
+            bio = request.form.get("bio", "").strip()
 
-        current_user.full_name = full_name
-        current_user.bio = bio
+            current_user.full_name = full_name
+            current_user.bio = bio
 
-        file = request.files.get("avatar")
-        if file and file.filename:
-            if not allowed_file(file.filename):
-                error = "Неверный формат файла. Разрешены: png, jpg, jpeg, gif, webp."
-            else:
+            file = request.files.get("avatar")
+            if file and file.filename:
+                ensure(
+                    allowed_file(file.filename),
+                    "Неверный формат файла. Разрешены: png, jpg, jpeg, gif, webp.",
+                )
                 fname = secure_filename(file.filename)
                 name, ext = os.path.splitext(fname)
                 final_name = f"{current_user.id}_{name}{ext}"
@@ -377,10 +420,11 @@ def profile_edit():
                 file.save(save_path)
                 current_user.avatar_url = f"/{save_path.replace(os.sep, '/')}"
 
-        if not error:
             db.session.commit()
             flash("Профиль обновлён", "success")
             return redirect(url_for("profile"))
+        except UserFacingError as exc:
+            error = str(exc)
 
     return render_template("profile_edit.html", error=error)
 
@@ -390,14 +434,17 @@ def profile_edit():
 def groups():
     """Список групп пользователя и создание новой группы."""
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
-        if name:
+        try:
+            name = request.form.get("name", "").strip()
+            ensure(name, "Введите название группы.")
             new_group = Group(name=name)
             new_group.users.append(current_user)
             db.session.add(new_group)
             db.session.commit()
             flash("Группа создана", "success")
             return redirect(url_for("groups"))
+        except UserFacingError as exc:
+            flash(str(exc), "error")
     cur_groups = current_user.groups
     return render_template("groups.html", groups=cur_groups)
 
@@ -412,13 +459,17 @@ def group_detail(group_id):
     """
     grp = Group.query.filter_by(id=group_id).first_or_404()
     if request.method == "POST":
-        user_id = request.form.get("user_id")
-        user = User.query.filter_by(id=user_id).first()
-        if user and user not in grp.users:
+        try:
+            user_id = request.form.get("user_id")
+            user = User.query.filter_by(id=user_id).first()
+            ensure(user is not None, "Пользователь не найден.")
+            ensure(user not in grp.users, "Пользователь уже в группе.")
             grp.users.append(user)
             db.session.commit()
             flash("Пользователь добавлен в группу", "success")
             return redirect(url_for("group_detail", group_id=group_id))
+        except UserFacingError as exc:
+            flash(str(exc), "error")
     all_users = User.query.all()
     return render_template("group_details.html", group=grp, all_users=all_users)
 
@@ -431,16 +482,18 @@ def remove_user_from_group():
     user_id = request.form.get("user_id")
     grp = Group.query.filter_by(id=group_id).first_or_404()
     user = User.query.filter_by(id=user_id).first()
-    if current_user not in grp.users:
-        flash("У вас нет прав на изменение этой группы", "error")
-        return redirect(url_for("groups"))
-    if current_user == user:
-        flash("Вы не можете удалить себя из группы", "error")
-        return redirect(url_for("group_detail", group_id=group_id))
-    if user and user in grp.users:
+    try:
+        ensure(current_user in grp.users, "У вас нет прав на изменение этой группы")
+        ensure(current_user != user, "Вы не можете удалить себя из группы")
+        ensure(user is not None and user in grp.users, "Пользователь уже удалён из группы")
         grp.users.remove(user)
         db.session.commit()
         flash("Пользователь удалён из группы", "info")
+    except UserFacingError as exc:
+        flash(str(exc), "error")
+        if current_user not in grp.users:
+            return redirect(url_for("groups"))
+        return redirect(url_for("group_detail", group_id=group_id))
     return redirect(url_for("group_detail", group_id=group_id))
 
 
@@ -454,39 +507,41 @@ def move_card():
     except Exception:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-
-    card_id = data.get("card_id")
-    new_status = data.get("new_status")
-    if not card_id or not new_status:
-        return jsonify({"error": "card_id and new_status are required"}), 400
-
     try:
-        card_id_int = int(card_id)
-    except (ValueError, TypeError):
-        return jsonify({"error": "Invalid card_id"}), 400
+        ensure_api(data, "No data provided")
 
-    card = Card.query.filter_by(id=card_id_int).first()
-    if not card:
-        return jsonify({"error": "Card not found"}), 404
+        card_id = data.get("card_id")
+        new_status = data.get("new_status")
+        ensure_api(card_id and new_status, "card_id and new_status are required")
 
-    board = Board.query.filter_by(id=card.board_id).first()
-    if not board:
-        return jsonify({"error": "Board not found"}), 404
+        try:
+            card_id_int = int(card_id)
+        except (ValueError, TypeError) as exc:
+            raise ApiError("Invalid card_id") from exc
 
-    if current_user != board.owner and (
-        board.owner_group is None or current_user not in board.owner_group.users
-    ):
-        return jsonify({"error": "Permission denied"}), 403
+        card = Card.query.filter_by(id=card_id_int).first()
+        ensure_api(card is not None, "Card not found", status_code=404)
 
-    valid_statuses = {"ideas", "todo", "wip", "done"}
-    if new_status not in valid_statuses:
-        return jsonify({"error": "Invalid status"}), 400
+        board = Board.query.filter_by(id=card.board_id).first()
+        ensure_api(board is not None, "Board not found", status_code=404)
 
-    card.status = new_status
-    db.session.commit()
-    return jsonify({"ok": True, "card_id": card.id, "new_status": card.status}), 200
+        has_group_access = (
+            board.owner_group is not None and current_user in board.owner_group.users
+        )
+        ensure_api(
+            current_user == board.owner or has_group_access,
+            "Permission denied",
+            status_code=403,
+        )
+
+        valid_statuses = {"ideas", "todo", "wip", "done"}
+        ensure_api(new_status in valid_statuses, "Invalid status")
+
+        card.status = new_status
+        db.session.commit()
+        return jsonify({"ok": True, "card_id": card.id, "new_status": card.status}), 200
+    except ApiError as exc:
+        return jsonify({"error": str(exc)}), exc.status_code
 
 
 if __name__ == "__main__":
