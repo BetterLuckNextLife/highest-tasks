@@ -32,7 +32,7 @@
       
       <div class="navlinks">
         <span class="navbar-brand">
-          <a href="http://37.143.129.216:7007" class="projecthome">Highest Tasks</a> <a href="index.html">API Documentation</a>
+          Highest Tasks <a href="index.html">API Documentation</a>
         </span>
 
         <a href="moduleIndex.html">
@@ -119,8 +119,31 @@
         
          
 
+        <div class="childrenKindTitle">Classes</div>
+        <ul>
+    
+    <li class="">
         
         
+        
+
+        
+            <div class="itemName"><code><a href="main.ApiError.html" class="internal-link" title="main.ApiError"><wbr></wbr>Api<wbr></wbr>Error</a></code>
+            </div>
+        
+
+    </li><li class="">
+        
+        
+        
+
+        
+            <div class="itemName"><code><a href="main.UserFacingError.html" class="internal-link" title="main.UserFacingError"><wbr></wbr>User<wbr></wbr>Facing<wbr></wbr>Error</a></code>
+            </div>
+        
+
+    </li>
+</ul>
 
         <div class="childrenKindTitle">Functions</div>
         <ul>
@@ -202,6 +225,26 @@
 
         
             <div class="itemName"><code><a href="#datetime_msk_input" class="internal-link" title="main.datetime_msk_input">datetime<wbr></wbr>_msk<wbr></wbr>_input</a></code>
+            </div>
+        
+
+    </li><li class="">
+        
+        
+        
+
+        
+            <div class="itemName"><code><a href="#ensure" class="internal-link" title="main.ensure">ensure</a></code>
+            </div>
+        
+
+    </li><li class="">
+        
+        
+        
+
+        
+            <div class="itemName"><code><a href="#ensure_api" class="internal-link" title="main.ensure_api">ensure<wbr></wbr>_api</a></code>
             </div>
         
 
@@ -431,7 +474,17 @@
           <table class="children sortable" id="id1">
   
   
-  <tr class="function">
+  <tr class="exception">
+    
+    <td>Exception</td>
+    <td><code><a href="main.ApiError.html" class="internal-link" title="main.ApiError"><wbr></wbr>Api<wbr></wbr>Error</a></code></td>
+    <td>Исключение для API-запросов с кодом ответа.</td>
+  </tr><tr class="exception">
+    
+    <td>Exception</td>
+    <td><code><a href="main.UserFacingError.html" class="internal-link" title="main.UserFacingError"><wbr></wbr>User<wbr></wbr>Facing<wbr></wbr>Error</a></code></td>
+    <td>Исключение, отображаемое пользователю.</td>
+  </tr><tr class="function">
     
     <td>Function</td>
     <td><code><a href="#add_board_to_group" class="internal-link" title="main.add_board_to_group">add<wbr></wbr>_board<wbr></wbr>_to<wbr></wbr>_group</a></code></td>
@@ -471,6 +524,16 @@
     <td>Function</td>
     <td><code><a href="#datetime_msk_input" class="internal-link" title="main.datetime_msk_input">datetime<wbr></wbr>_msk<wbr></wbr>_input</a></code></td>
     <td>Готовит дату-время для предварительного заполнения HTML-поля в МСК.</td>
+  </tr><tr class="function">
+    
+    <td>Function</td>
+    <td><code><a href="#ensure" class="internal-link" title="main.ensure">ensure</a></code></td>
+    <td>Поднимает UserFacingError, если условие ложно.</td>
+  </tr><tr class="function">
+    
+    <td>Function</td>
+    <td><code><a href="#ensure_api" class="internal-link" title="main.ensure_api">ensure<wbr></wbr>_api</a></code></td>
+    <td>Поднимает ApiError, если условие ложно.</td>
   </tr><tr class="function">
     
     <td>Function</td>
@@ -755,6 +818,54 @@
   <div class="docstring functionBody">
     
     <div><p>Готовит дату-время для предварительного заполнения HTML-поля в МСК.</p><table class="fieldTable"><tr class="fieldStart"><td class="fieldName" colspan="2">Parameters</td></tr><tr><td class="fieldArgContainer"><span class="fieldArg">value</span></td><td class="fieldArgDesc">Исходное UTC-время.</td></tr></table><table class="fieldTable"><tr class="fieldStart"><td class="fieldName" colspan="2">Returns</td></tr><tr><td class="fieldArgContainer"><code>Строка в формате ДД.ММ.ГГГГ ЧЧ</code></td><td class="fieldArgDesc">ММ или пустая строка.</td></tr></table></div>
+  </div>
+</div><div class="basefunction">
+  
+  
+  <a name="main.ensure">
+    
+  </a>
+  <a name="ensure">
+    
+  </a>
+  <div class="functionHeader">
+    
+    
+    <span class="py-keyword">def</span>&#160;<span class="py-defname">ensure</span><span class="function-signature">(<span class="rst-sig-param">condition: <code>bool</code>, </span><span class="rst-sig-param">message: <code>str</code></span>):</span>
+    
+    <a class="headerLink" href="#ensure" title="main.ensure">
+      
+      
+      ¶
+    </a>
+  </div>
+  <div class="docstring functionBody">
+    
+    <div><p>Поднимает UserFacingError, если условие ложно.</p></div>
+  </div>
+</div><div class="basefunction">
+  
+  
+  <a name="main.ensure_api">
+    
+  </a>
+  <a name="ensure_api">
+    
+  </a>
+  <div class="functionHeader">
+    
+    
+    <span class="py-keyword">def</span>&#160;<span class="py-defname">ensure_api</span><span class="function-signature">(<span class="rst-sig-param">condition: <code>bool</code>, </span><span class="rst-sig-param">message: <code>str</code>, </span><span class="rst-sig-param">status_code: <code>int</code> = 400</span>):</span>
+    
+    <a class="headerLink" href="#ensure_api" title="main.ensure_api">
+      
+      
+      ¶
+    </a>
+  </div>
+  <div class="docstring functionBody">
+    
+    <div><p>Поднимает ApiError, если условие ложно.</p></div>
   </div>
 </div><div class="basefunction">
   
@@ -1174,9 +1285,9 @@
 
   
   <div class="container-fluid">
-    <a href="index.html">API Documentation</a> for <a href="http://37.143.129.216:7007" class="projecthome">Highest Tasks</a>,
+    <a href="index.html">API Documentation</a> for Highest Tasks,
   generated by <a href="https://github.com/twisted/pydoctor/">pydoctor</a>
-    25.10.1 at 2025-12-20 01:47:19.
+    25.10.1 at 2025-12-20 03:45:53.
   </div>
 
   <!-- Search related scripts needs to be loaded at the end of HTML 

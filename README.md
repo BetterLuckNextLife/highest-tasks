@@ -26,9 +26,12 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=ChangeMeInProd!
 POSTGRES_DB=highesttasks
 APP_SECRET_KEY=ChangeMeInProd!
+UPLOAD_FOLDER=static/uploads
 ```
 
 ## Запуск
+
+Скопируйте `example.env` в `.env`, настройте под себя.
 
 ### В Docker
 
