@@ -247,7 +247,7 @@ def board(board_id):
                 status=status,
                 deadline=None,
                 board_id=board.id,
-                created_at=datetime.utcnow(),
+                created_at=datetime.utcnow() + MSK_OFFSET,
             )
             db.session.add(card)
             db.session.commit()

@@ -92,7 +92,11 @@ class Card(db.Model):
     task_assignee = db.Column(db.String(128), nullable=False, default="")
     task_description = db.Column(db.Text, default="")
     deadline = db.Column(db.DateTime, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    created_at = db.Column(
+        db.DateTime,
+        nullable=False,
+        default=lambda: datetime.utcnow() + timedelta(hours=3),
+    )
 
     # статусы: ideas, todo, wip, done
     status = db.Column(db.String(20), nullable=False, default="ideas")
